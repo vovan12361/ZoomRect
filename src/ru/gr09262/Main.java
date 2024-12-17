@@ -1,4 +1,4 @@
-package ru_09_262;
+package ru.gr09262;
 
 public class Main {
     public static void main(String[] args) {
