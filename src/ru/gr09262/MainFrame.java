@@ -1,6 +1,7 @@
 package ru.gr09262;
 
 import ru.gr09262.gui.AreaSelector;
+import ru.gr09262.gui.FractalPainter;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,7 +11,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 public class MainFrame extends JFrame {
-    private final JPanel mainPanel = new JPanel();
+    private final FractalPainter fPainter = new FractalPainter(-2.0, 1.0, -1.0, 1.0);
+    private final JPanel mainPanel = new JPanel(){
+        @Override
+        public void paint(Graphics g){
+            fPainter.paint(g);
+        }
+    };
     private final AreaSelector selector = new AreaSelector();
 
     public MainFrame(){
@@ -26,6 +33,8 @@ public class MainFrame extends JFrame {
             public void componentResized(ComponentEvent e) {
                 super.componentResized(e);
                 selector.setGraphics(mainPanel.getGraphics());
+                fPainter.setWidth(mainPanel.getWidth());
+                fPainter.setHeight(mainPanel.getHeight());
             }
         });
 
@@ -52,12 +61,5 @@ public class MainFrame extends JFrame {
                 selector.paint();
             }
         });
-    }
-
-    public void paint(Graphics graphics) {
-        super.paint(graphics);
-        Graphics g = mainPanel.getGraphics();
-        g.setColor(Color.RED);
-        g.fillOval(100, 100, 400, 300);
     }
 }
