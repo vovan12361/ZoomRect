@@ -1,22 +1,33 @@
 package ru.gr09262.math;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import static java.lang.Math.abs;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Converter {
+
     private double xMin;
+
     private double xMax;
+
     private double yMin;
+
     private double yMax;
+    @JsonIgnore
     private int width;
+    @JsonIgnore
     private int height;
 
     public Converter(
-            double xMin,
-            double xMax,
-            double yMin,
-            double yMax,
-            int width,
-            int height
+            @JsonProperty("xmin") double xMin,
+            @JsonProperty("xmax") double xMax,
+            @JsonProperty("ymin") double yMin,
+            @JsonProperty("ymax") double yMax,
+            @JsonProperty("width") int width,
+            @JsonProperty("height") int height
     ){
         setXShape(xMin, xMax);
         setYShape(yMin, yMax);
@@ -35,10 +46,6 @@ public class Converter {
     public void setXShape(double xMin, double xMax) {
         this.xMin = Math.min(xMin, xMax);
         this.xMax = Math.max(xMin, xMax);
-        if (abs(xMin-xMax) < 1e-1){
-            this.xMin -= 0.05;
-            this.xMax += 0.05;
-        }
     }
 
     public double getYMin() {
@@ -52,10 +59,6 @@ public class Converter {
     public void setYShape(double yMin, double yMax) {
         this.yMin = Math.min(yMin, yMax);
         this.yMax = Math.max(yMin, yMax);
-        if (abs(yMin-yMax) < 1e-1){
-            this.yMin -= 0.05;
-            this.yMax += 0.05;
-        }
     }
 
     public int getWidth() {
@@ -73,11 +76,11 @@ public class Converter {
     public void setHeight(int height) {
         this.height = abs(height);
     }
-
+    @JsonIgnore
     public double getXDen(){
         return width / (xMax - xMin);
     }
-
+    @JsonIgnore
     public double getYDen(){
         return height / (yMax - yMin);
     }

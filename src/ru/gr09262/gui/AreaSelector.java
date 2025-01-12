@@ -7,7 +7,7 @@ import java.awt.*;
  * выбираемой при помощи мыши области
  */
 public class AreaSelector {
-    private final Rect rect= new Rect();
+    private final Rect rect = new Rect();
     private Graphics mainGraphics;
     private Color color;
 
@@ -53,6 +53,7 @@ public class AreaSelector {
         this.color = color;
     }
 
+
     /**
      * Отрисовка прямоугольной области, сформированной двумя заданными точками
      */
@@ -87,4 +88,7 @@ public class AreaSelector {
         rect.clearPoints();
     }
 
+    public Rect getRect() {
+        return rect;
+    }
 }
