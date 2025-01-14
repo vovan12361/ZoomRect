@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.gr09262.gui.AreaSelector;
 import ru.gr09262.gui.FractalPainter;
 import ru.gr09262.gui.UndoManager;
+//import ru.gr09262.gui.UndoManager;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -14,17 +15,27 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
+
+/**
+ * Основной класс графического интерфейса приложения.
+ */
 public class MainFrame extends JFrame {
     private final UndoManager undoManager = new UndoManager();
     private final FractalPainter fPainter = new FractalPainter(-2.0, 1.0, -1.0, 1.0);
     private final JPanel mainPanel = new JPanel(){
         @Override
         public void paint(Graphics g){
+            fPainter.adjustCoordinatesToAspectRatio(mainPanel.getWidth(), mainPanel.getHeight());
             fPainter.paint(g);
         }
     };
     private final AreaSelector selector = new AreaSelector();
     private Point dragStartPoint = null;
+    /**
+     * Создает меню для окна приложения.
+     *
+     * @return объект JMenuBar, содержащий элементы меню.
+     */
     private JMenuBar createMenu() {
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("Файл");
@@ -34,6 +45,22 @@ public class MainFrame extends JFrame {
         JMenuItem saveItem = getSaveItem();
 
         JMenuItem photoMenu = getPhotoMenu();
+
+        JMenu colorMenu = new JMenu("Цветовая схема");
+
+        JMenuItem backgroundColorDialog = new JMenuItem("Цвет, входящих в множество точек");
+        backgroundColorDialog.addActionListener(e -> {
+            Color inSetColor = JColorChooser.showDialog(MainFrame.this, "Выберите цвет", Color.black);
+            fPainter.setInSetColor(inSetColor);
+            repaint();
+        });
+
+        JMenuItem mainColorDialog = new JMenuItem("Дополнительный цвет");
+        mainColorDialog.addActionListener(e -> {
+            Color mainColor = JColorChooser.showDialog(MainFrame.this, "Выберите цвет", Color.RED);
+            fPainter.setMainColor(mainColor);
+            repaint();
+        });
 
         JMenuItem resetItem = new JMenuItem("Сбросить масштаб");
         resetItem.addActionListener(e -> {
@@ -51,8 +78,13 @@ public class MainFrame extends JFrame {
         fileMenu.addSeparator();
         fileMenu.add(photoMenu);
 
+        colorMenu.add(backgroundColorDialog);
+        colorMenu.addSeparator();
+        colorMenu.add(mainColorDialog);
+
         menuBar.add(fileMenu);
         menuBar.add(resetItem);
+        menuBar.add(colorMenu);
         menuBar.add(exitItem);
 
         setJMenuBar(menuBar);
@@ -61,6 +93,11 @@ public class MainFrame extends JFrame {
         return menuBar;
     }
 
+    /**
+     * Создает пункт меню для сохранения изображения.
+     *
+     * @return объект JMenuItem для сохранения изображения.
+     */
     private JMenuItem getPhotoMenu() {
         JMenuItem photoMenu = new JMenuItem("Сохранить фото");
         photoMenu.addActionListener(e -> {
@@ -85,6 +122,11 @@ public class MainFrame extends JFrame {
         return photoMenu;
     }
 
+    /**
+     * Создает пункт меню для сохранения конфигурации в формате JSON.
+     *
+     * @return объект JMenuItem для сохранения конфигурации.
+     */
     private JMenuItem getSaveItem() {
         JMenuItem saveItem = new JMenuItem("Сохранить");
         saveItem.addActionListener(e -> {
@@ -110,6 +152,11 @@ public class MainFrame extends JFrame {
         return saveItem;
     }
 
+    /**
+     * Создает пункт меню для открытия конфигурации из файла JSON.
+     *
+     * @return объект JMenuItem для открытия конфигурации.
+     */
     private JMenuItem getOpenItem() {
         JMenuItem openItem = new JMenuItem("Открыть");
         openItem.addActionListener(e -> {
@@ -136,6 +183,13 @@ public class MainFrame extends JFrame {
         return openItem;
     }
 
+    /**
+     * Метод для сохранения содержимого панели в виде изображения.
+     *
+     * @param panel    Панель, содержимое которой нужно сохранить.
+     * @param filePath Путь к файлу, в который будет сохранено изображение.
+     * @throws Exception Если возникает ошибка при сохранении изображения.
+     */
     private void savePanelAsImage(JPanel panel, String filePath) throws Exception {
         BufferedImage image = new BufferedImage(panel.getWidth(), panel.getHeight(), BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = image.createGraphics();
@@ -151,6 +205,12 @@ public class MainFrame extends JFrame {
         ImageIO.write(image, "png", outputFile);
     }
 
+    /**
+     * Метод для сохранения текущей конфигурации фрактала в файл JSON.
+     *
+     * @param filePath Путь к файлу, в который будет сохранена конфигурация.
+     * @throws IOException Если возникает ошибка при записи файла.
+     */
     private void saveConfig(String filePath) throws IOException {
         if (!filePath.toLowerCase().endsWith(".json")) {
             filePath += ".json";
@@ -162,6 +222,12 @@ public class MainFrame extends JFrame {
         mapper.writeValue(outputFile, fPainter);
     }
 
+    /**
+     * Метод для загрузки конфигурации фрактала из файла JSON.
+     *
+     * @param filePath Путь к файлу, из которого будет загружена конфигурация.
+     * @throws IOException Если возникает ошибка при чтении файла или формат файла неверный.
+     */
     private void openConfig(String filePath) throws IOException {
         if (!filePath.toLowerCase().endsWith(".json")) {
             throw new IOException("Не json файл");
@@ -175,6 +241,57 @@ public class MainFrame extends JFrame {
         mainPanel.repaint();
     }
 
+    /**
+     * Обрабатывает выделенную область для масштабирования.
+     */
+    private void processSelection() {
+        selector.paint();
+        var rect = selector.getRect();
+        Point startPoint = rect.getStartPoint();
+        int width = rect.getWidth();
+        int height = rect.getHeigth();
+        if (startPoint != null && width > 0 && height > 0) {
+            var converter = fPainter.getConverter();
+            double xMin = converter.xScr2Crt(startPoint.x);
+            double yMax = converter.yScr2Crt(startPoint.y);
+            double xMax = converter.xScr2Crt(startPoint.x + width);
+            double yMin = converter.yScr2Crt(startPoint.y + height);
+            undoManager.addOperation(() -> fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight()));
+            fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight());
+            mainPanel.repaint();
+        }
+        selector.clearSelection();
+    }
+
+    /**
+     * Обрабатывает перемещение области просмотра при правом клике и перетаскивании.
+     *
+     * @param e Событие мыши, связанное с перемещением.
+     */
+    private void processDrag(MouseEvent e) {
+        Point dragEndPoint = e.getPoint();
+        int dx = dragStartPoint.x - dragEndPoint.x;
+        int dy = dragStartPoint.y - dragEndPoint.y;
+
+        double xShift = fPainter.getConverter().xScr2Crt(0) - fPainter.getConverter().xScr2Crt(dx);
+        double yShift = fPainter.getConverter().yScr2Crt(0) - fPainter.getConverter().yScr2Crt(dy);
+
+        if (xShift != 0 && yShift != 0) {
+            double xMin = fPainter.getConverter().getXMin() - xShift;
+            double xMax = fPainter.getConverter().getXMax() - xShift;
+            double yMin = fPainter.getConverter().getYMin() - yShift;
+            double yMax = fPainter.getConverter().getYMax() - yShift;
+            undoManager.addOperation(() -> fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight()));
+            fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight());
+            mainPanel.repaint();
+        }
+        dragStartPoint = null;
+    }
+
+    /**
+     * Конструктор основного окна приложения.
+     * Устанавливает параметры окна, настраивает меню и обработчики событий.
+     */
     public MainFrame(){
 
         mainPanel.setBackground(Color.WHITE);
@@ -238,42 +355,10 @@ public class MainFrame extends JFrame {
             public void mouseReleased(MouseEvent e) {
                 super.mouseReleased(e);
                 if(SwingUtilities.isLeftMouseButton(e)) {
-                    selector.paint();
-                    var rect = selector.getRect();
-                    Point startPoint = rect.getStartPoint();
-                    int width = rect.getWidth();
-                    int height = rect.getHeigth();
-                    if (startPoint != null && width > 0 && height > 0) {
-                        var converter = fPainter.getConverter();
-                        double xMin = converter.xScr2Crt(startPoint.x);
-                        double yMax = converter.yScr2Crt(startPoint.y);
-                        double xMax = converter.xScr2Crt(startPoint.x + width);
-                        double yMin = converter.yScr2Crt(startPoint.y + height);
-                        undoManager.addOperation(() -> fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight()));
-                        fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight());
-                        mainPanel.repaint();
-                    }
-                    selector.clearSelection();
+                    processSelection();
                 }
                 if(SwingUtilities.isRightMouseButton(e)) {
-                    Point dragEndPoint = e.getPoint();
-
-                    int dx = dragStartPoint.x - dragEndPoint.x;
-                    int dy = dragStartPoint.y - dragEndPoint.y;
-
-                    double xShift = fPainter.getConverter().xScr2Crt(0) - fPainter.getConverter().xScr2Crt(dx);
-                    double yShift = fPainter.getConverter().yScr2Crt(0) - fPainter.getConverter().yScr2Crt(dy);
-
-                    double xMin = fPainter.getConverter().getXMin() - xShift;
-                    double xMax = fPainter.getConverter().getXMax() - xShift;
-                    double yMin = fPainter.getConverter().getYMin() - yShift;
-                    double yMax = fPainter.getConverter().getYMax() - yShift;
-                    undoManager.addOperation(() -> {
-                        fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight());
-                    });
-                    fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight());
-                    mainPanel.repaint();
-                    dragStartPoint = null;
+                    processDrag(e);
                 }
             }
         });
