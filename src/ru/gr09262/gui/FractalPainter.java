@@ -9,6 +9,7 @@ import ru.gr09262.math.Complex;
 import ru.gr09262.math.Converter;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -20,6 +21,7 @@ import java.util.concurrent.Future;
 public class FractalPainter implements Painter{
 
     private final Mondelbrot mondelbrot = new Mondelbrot();
+    @JsonProperty("converter")
     private final Converter converter;
     private static final int THREAD_COUNT = Runtime.getRuntime().availableProcessors();
     private Color inSetColor = Color.BLACK;
@@ -63,6 +65,7 @@ public class FractalPainter implements Painter{
                                   double yMin, double yMax, int panelWidth, int panelHeight){
         converter.setXShape(xMin,xMax);
         converter.setYShape(yMin,yMax);
+//        System.out.println(xMin + " " + xMax + " " + yMin + " " + yMax);
         adjustCoordinatesToAspectRatio(panelWidth, panelHeight);
     }
 
@@ -102,9 +105,11 @@ public class FractalPainter implements Painter{
         int maxIter = (int) Math.sqrt(15 / (fractalWidth * fractalHeight));
         mondelbrot.setIter(maxIter);
 
+        int width = (getWidth() < 0) ? 1 : getWidth();
+        int height = (getHeight() < 0) ? 1 : getHeight();
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+
         try (ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT)) {
-            int height = getHeight();
-            int width = getWidth();
             int chunkSize = height / THREAD_COUNT;
 
             Future<?>[] tasks = new Future[THREAD_COUNT];
@@ -128,10 +133,7 @@ public class FractalPainter implements Painter{
                                 if (hue > 1.0f) hue -= 1.0f;
                                 color = Color.getHSBColor(hue, mainColor[1], mainColor[2]);
                             }
-                            synchronized (g) {
-                                g.setColor(color);
-                                g.fillRect(i, j, 1, 1);
-                            }
+                            image.setRGB(i, j, color.getRGB());
                         }
                     }
                 });
@@ -146,6 +148,7 @@ public class FractalPainter implements Painter{
             }
             executor.shutdown();
         }
+        g.drawImage(image, 0,0,null);
     }
 
     /**

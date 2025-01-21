@@ -1,10 +1,10 @@
 package ru.gr09262;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jcodec.api.awt.AWTSequenceEncoder;
 import ru.gr09262.gui.AreaSelector;
 import ru.gr09262.gui.FractalPainter;
 import ru.gr09262.gui.UndoManager;
-//import ru.gr09262.gui.UndoManager;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -14,6 +14,8 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Objects;
 
 
 /**
@@ -47,6 +49,15 @@ public class MainFrame extends JFrame {
         JMenuItem photoMenu = getPhotoMenu();
 
         JMenu colorMenu = new JMenu("Цветовая схема");
+
+        JMenuItem videoItem = new JMenuItem("Видео");
+        videoItem.addActionListener(e -> {
+            try {
+                startVideo();
+            } catch (Exception ex) {
+                System.out.println(ex);
+            }
+        });
 
         JMenuItem backgroundColorDialog = new JMenuItem("Цвет, входящих в множество точек");
         backgroundColorDialog.addActionListener(e -> {
@@ -85,12 +96,67 @@ public class MainFrame extends JFrame {
         menuBar.add(fileMenu);
         menuBar.add(resetItem);
         menuBar.add(colorMenu);
+        menuBar.add(videoItem);
         menuBar.add(exitItem);
 
         setJMenuBar(menuBar);
 
         setSize(300, 200);
         return menuBar;
+    }
+
+    public void startVideo() {
+        double xMinEnd = fPainter.getConverter().getXMin();
+        double xMaxEnd = fPainter.getConverter().getXMax();
+        double yMinEnd = fPainter.getConverter().getYMin();
+        double yMaxEnd = fPainter.getConverter().getYMax();
+        ArrayList<BufferedImage> listBI = new ArrayList<>();
+        fPainter.resetCoordinates();
+            new Thread(() -> {
+                double xMin = fPainter.getConverter().getXMin();
+                double xMax = fPainter.getConverter().getXMax();
+                double yMin = fPainter.getConverter().getYMin();
+                double yMax = fPainter.getConverter().getYMax();
+//                double xMinEnd = -1.787770546568697, xMaxEnd = -1.7877660961343191, yMinEnd = -2.5517939243822196E-6, yMaxEnd = 3.1123952838655016E-6;
+                int frames = 1200;
+                double xMinStep = (xMinEnd - xMin) / frames;
+                double xMaxStep = (xMaxEnd - xMax) / frames;
+                double yMinStep = (yMinEnd - yMin) / frames;
+                double yMaxStep = (yMaxEnd - yMax) / frames;
+                for (int frame = 0; frame < frames; frame++) {
+                    xMin += xMinStep;
+                    xMax += xMaxStep;
+                    yMin += yMinStep;
+                    yMax += yMaxStep;
+                    fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight());
+                    BufferedImage image = new BufferedImage(mainPanel.getWidth(), mainPanel.getHeight(), BufferedImage.TYPE_INT_RGB);
+                    Graphics2D g2d = image.createGraphics();
+                    mainPanel.paint(g2d);
+                    listBI.add(image);
+                    mainPanel.repaint();
+                    try {
+                        Thread.sleep(250); // Задержка между кадрами (можно настроить)
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                AWTSequenceEncoder encoder = null;
+                try {
+                    encoder = AWTSequenceEncoder.createSequenceEncoder(new File("4.mp4"), 30);
+                    for (BufferedImage image : listBI) {
+                        encoder.encodeImage(image);
+                    }
+                    System.out.println("Video generated");
+                } catch (Exception e) {
+                    System.out.println("Fail to generate video!");
+
+                }
+                try {
+                    Objects.requireNonNull(encoder).finish();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }).start();
     }
 
     /**
@@ -171,8 +237,13 @@ public class MainFrame extends JFrame {
             int result = openFileDialog.showOpenDialog(MainFrame.this);
             if (result == JFileChooser.APPROVE_OPTION) {
                 try {
-                    openConfig(openFileDialog.getSelectedFile().getAbsolutePath());
-                    JOptionPane.showMessageDialog(this, "Файл успешно открыт!", "Успех", JOptionPane.INFORMATION_MESSAGE);
+                    try {
+                        openConfig(openFileDialog.getSelectedFile().getAbsolutePath());
+                        JOptionPane.showMessageDialog(this, "Файл успешно открыт!", "Успех", JOptionPane.INFORMATION_MESSAGE);
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(this, "Ошибка при открытии конфига: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
+                        System.out.println("Ошибка при открытии конфига: " + ex.getMessage());
+                    }
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Ошибка при открытии конфига: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
                     System.out.println("Ошибка при открытии конфига: " + ex.getMessage());
@@ -236,8 +307,16 @@ public class MainFrame extends JFrame {
         ObjectMapper mapper = new ObjectMapper();
         File inputFile = new File(filePath);
         FractalPainter jsonPainter = mapper.readValue(inputFile, fPainter.getClass());
-        fPainter.updateCoordinates(jsonPainter.getConverter().getXMin(), jsonPainter.getConverter().getXMax(),
-                jsonPainter.getConverter().getYMin(), jsonPainter.getConverter().getYMax(), mainPanel.getWidth(), mainPanel.getHeight());
+
+        double xMin = jsonPainter.getConverter().getXMin();
+        double xMax = jsonPainter.getConverter().getXMax();
+        double yMin = jsonPainter.getConverter().getYMin();
+        double yMax = jsonPainter.getConverter().getYMax();
+
+        if (xMin == 0.0 || xMax == 0.0 || yMin == 0.0 || yMax == 0.0) {
+            throw new IOException("JSON файл содержит некорректные или неполные данные о координатах.");
+        }
+        fPainter.updateCoordinates(xMin, xMax, yMin, yMax, mainPanel.getWidth(), mainPanel.getHeight());
         mainPanel.repaint();
     }
 

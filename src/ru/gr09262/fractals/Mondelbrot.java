@@ -7,7 +7,6 @@ import ru.gr09262.math.Complex;
  * Класс для вычисления принадлежности комплексного числа к множеству Мандельброта.
  */
 public class Mondelbrot {
-    private final double r2 = 4.0;
     private int Iter = 200;
     /**
      * Определяет, принадлежит ли данное комплексное число множеству Мандельброта.
@@ -18,6 +17,7 @@ public class Mondelbrot {
     public int isInSet(Complex c) {
         Complex z = new Complex();
         int i = 0;
+        double r2 = 4.0;
         while(z.abs2() < r2 && i < Iter) {
             z = z.times(z).plus(c);
             i++;
@@ -42,7 +42,7 @@ public class Mondelbrot {
      */
     public void setIter(int iter) {
         if (iter < 200) iter = 200;
-        if (iter > 5000) iter = 5000;
+        if (iter > 12000) iter = 12000;
         Iter = iter;
     }
 }
